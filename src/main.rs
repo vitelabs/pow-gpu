@@ -52,7 +52,7 @@ fn work_value(root: [u8; 32], work: [u8; 8]) -> u64 {
 
 #[inline]
 fn work_valid(root: [u8; 32], work: [u8; 8]) -> bool {
-    work_value(root, work) >= 0xffffffc000000000
+    work_value(root, work) >= 0xfffffe0000000000
 }
 
 enum WorkError {
@@ -309,16 +309,16 @@ impl Service for RpcService {
 }
 
 fn main() {
-    let args = clap::App::new("Nano work server")
+    let args = clap::App::new("Banano work server")
         .version("1.0")
-        .author("Lee Bousfield <ljbousfield@gmail.com>")
-        .about("Provides a work server for Nano without a full node")
+        .author("Lee Bousfield <ljbousfield@gmail.com>\nRyan LeFevre <meltingice8917@gmail.com>")
+        .about("Provides a work server for Banano without a full node")
         .arg(
             clap::Arg::with_name("listen_address")
                 .short("l")
                 .long("listen-address")
                 .value_name("ADDR")
-                .default_value("[::1]:7076")
+                .default_value("[::1]:7072")
                 .help("Specifies the address to listen on"),
         )
         .arg(

@@ -1,10 +1,10 @@
 [package]
-name = "nano-work-server"
+name = "banano-work-server"
 version = "0.1.6"
-authors = ["Lee Bousfield <ljbousfield@gmail.com>"]
+authors = ["Lee Bousfield <ljbousfield@gmail.com>", "Ryan LeFevre <meltingice8917@gmail.com>"]
 license = "BSD-2-Clause"
-repository = "https://github.com/nanocurrency/nano-work-server"
-description = "A dedicated work server for the Nano cryptocurrency"
+repository = "https://github.com/meltingice/banano-work-server"
+description = "A dedicated work server for the Banano cryptocurrency"
 
 [dependencies]
 futures = "0.1.17"
