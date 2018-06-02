@@ -8,6 +8,7 @@ extern crate hyper;
 extern crate ocl;
 extern crate parking_lot;
 extern crate rand;
+extern crate time;
 #[macro_use]
 extern crate serde_json;
 
@@ -38,6 +39,8 @@ use digest::{Input, VariableOutput};
 use byteorder::{ByteOrder, LittleEndian};
 
 use parking_lot::{Condvar, Mutex};
+
+use time::PreciseTime;
 
 use gpu::Gpu;
 
@@ -231,10 +234,13 @@ impl RpcService {
             Ok(r) => r,
             Err(err) => return Box::new(future::ok((StatusCode::BadRequest, err))),
         };
+        let start = PreciseTime::now();
         match command {
             RpcCommand::WorkGenerate(root) => {
-                Box::new(self.generate_work(root).then(|res| match res {
+                Box::new(self.generate_work(root).then(move |res| match res {
                     Ok(work) => {
+                        let end = PreciseTime::now();
+                        println!("work_generate completed in {}ms", start.to(end).num_milliseconds());
                         let work: Vec<u8> = work.iter().rev().cloned().collect();
                         Ok((
                             StatusCode::Ok,
@@ -258,10 +264,12 @@ impl RpcService {
                 }))
             }
             RpcCommand::WorkCancel(root) => {
+                println!("Received work_cancel");
                 self.cancel_work(root);
                 Box::new(Box::new(future::ok((StatusCode::Ok, json!({})))))
             }
             RpcCommand::WorkValidate(root, work) => {
+                println!("Received work_validate");
                 let valid = work_valid(root, work);
                 Box::new(future::ok((
                     StatusCode::Ok,
@@ -309,6 +317,8 @@ impl Service for RpcService {
 }
 
 fn main() {
+    //simple_logger::init().unwrap();
+
     let args = clap::App::new("Banano work server")
         .version("1.0")
         .author("Lee Bousfield <ljbousfield@gmail.com>\nRyan LeFevre <meltingice8917@gmail.com>")
