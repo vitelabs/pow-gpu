@@ -264,9 +264,11 @@ impl RpcService {
                 Box::new(self.generate_work(root, threshold).then(move |res| match res {
                     Ok(work) => {
                         let end = PreciseTime::now();
+                        let mut threshold_r = threshold;
+                        threshold_r.reverse();
                         println!("work_generate completed in {}ms for threshold {:?}",
                             start.to(end).num_milliseconds(),
-                            hex::encode(&threshold));
+                            hex::encode(threshold_r));
                         let work: Vec<u8> = work.iter().rev().cloned().collect();
                         Ok((
                             StatusCode::Ok,
