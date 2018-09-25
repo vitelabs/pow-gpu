@@ -54,8 +54,8 @@ fn work_value(root: [u8; 32], work: [u8; 8]) -> u64 {
 }
 
 #[inline]
-fn work_valid(root: [u8; 32], work: [u8; 8]) -> bool {
-    work_value(root, work) >= 0xfffffe0000000000
+fn work_valid(root: [u8; 32], work: [u8; 8], threshold: [u8; 8]) -> bool {
+    work_value(root, work) >= LittleEndian::read_u64(&threshold)
 }
 
 enum WorkError {
@@ -66,18 +66,20 @@ enum WorkError {
 #[derive(Default)]
 struct WorkState {
     root: [u8; 32],
+    threshold: [u8; 8],
     callback: Option<oneshot::Sender<Result<[u8; 8], WorkError>>>,
     task_complete: Arc<AtomicBool>,
     unsuccessful_workers: usize,
-    future_work: VecDeque<([u8; 32], oneshot::Sender<Result<[u8; 8], WorkError>>)>,
+    future_work: VecDeque<([u8; 32], [u8; 8], oneshot::Sender<Result<[u8; 8], WorkError>>)>,
 }
 
 impl WorkState {
     fn set_task(&mut self, cond_var: &Condvar) {
         if self.callback.is_none() {
             self.task_complete.store(true, atomic::Ordering::Relaxed);
-            if let Some((root, callback)) = self.future_work.pop_front() {
+            if let Some((root, threshold, callback)) = self.future_work.pop_front() {
                 self.root = root;
+                self.threshold = threshold;
                 self.callback = Some(callback);
                 self.task_complete = Arc::new(AtomicBool::new(false));
                 cond_var.notify_all();
@@ -92,9 +94,9 @@ struct RpcService {
 }
 
 enum RpcCommand {
-    WorkGenerate([u8; 32]),
+    WorkGenerate([u8; 32], [u8; 8]),
     WorkCancel([u8; 32]),
-    WorkValidate([u8; 32], [u8; 8]),
+    WorkValidate([u8; 32], [u8; 8], [u8; 8]),
 }
 
 enum HexJsonError {
@@ -103,10 +105,10 @@ enum HexJsonError {
 }
 
 impl RpcService {
-    fn generate_work(&self, root: [u8; 32]) -> Box<Future<Item = [u8; 8], Error = WorkError>> {
+    fn generate_work(&self, root: [u8; 32], threshold: [u8; 8]) -> Box<Future<Item = [u8; 8], Error = WorkError>> {
         let mut state = self.work_state.0.lock();
         let (callback_send, callback_recv) = oneshot::channel();
-        state.future_work.push_back((root, callback_send));
+        state.future_work.push_back((root, threshold, callback_send));
         state.set_task(&self.work_state.1);
         Box::new(
             callback_recv
@@ -120,7 +122,7 @@ impl RpcService {
         let mut i = 0;
         while i < state.future_work.len() {
             if state.future_work[i].0 == root {
-                if let Some((_, callback)) = state.future_work.remove(i) {
+                if let Some((_, _, callback)) = state.future_work.remove(i) {
                     let _ = callback.send(Err(WorkError::Canceled));
                     continue;
                 }
@@ -188,6 +190,26 @@ impl RpcService {
         Ok(out)
     }
 
+    fn parse_threshold_json(json: &Value) -> Result<[u8; 8], Value> {
+        let root = json.get("threshold").ok_or(json!({
+            "error": "Failed to deserialize JSON",
+            "hint": "Threshold field missing",
+        }))?;
+        let mut out = [0u8; 8];
+        Self::parse_hex_json(&root, &mut out).map_err(|err| match err {
+            HexJsonError::InvalidHex => json!({
+                "error": "Failed to deserialize JSON",
+                "hint": "Expecting a hex string for threshold",
+            }),
+            HexJsonError::TooLong => json!({
+                "error": "Failed to deserialize JSON",
+                "hint": "Threshold is too long (should be 8 bytes)",
+            }),
+        })?;
+        out.reverse();
+        Ok(out)
+    }
+
     fn parse_json(json: Value) -> Result<RpcCommand, Value> {
         match json.get("action") {
             None => {
@@ -196,20 +218,22 @@ impl RpcService {
                     "hint": "Work field missing",
                 }))
             }
-            Some(action) if action == "work_generate" => {
-                Ok(RpcCommand::WorkGenerate(Self::parse_hash_json(&json)?))
-            }
+            Some(action) if action == "work_generate" => Ok(RpcCommand::WorkGenerate(
+                Self::parse_hash_json(&json)?,
+                Self::parse_threshold_json(&json)?,
+            )),
             Some(action) if action == "work_cancel" => {
                 Ok(RpcCommand::WorkCancel(Self::parse_hash_json(&json)?))
             }
             Some(action) if action == "work_validate" => Ok(RpcCommand::WorkValidate(
                 Self::parse_hash_json(&json)?,
                 Self::parse_work_json(&json)?,
+                Self::parse_threshold_json(&json)?,
             )),
             Some(_) => {
                 return Err(json!({
                     "error": "Unknown command",
-                    "hint": "This isn't rai_node, it's nano-work-server. Supported commands: work_generate, work_cancel, and work_validate."
+                    "hint": "Supported commands: work_generate, work_cancel, work_validate"
                 }))
             }
         }
@@ -236,11 +260,13 @@ impl RpcService {
         };
         let start = PreciseTime::now();
         match command {
-            RpcCommand::WorkGenerate(root) => {
-                Box::new(self.generate_work(root).then(move |res| match res {
+            RpcCommand::WorkGenerate(root, threshold) => {
+                Box::new(self.generate_work(root, threshold).then(move |res| match res {
                     Ok(work) => {
                         let end = PreciseTime::now();
-                        println!("work_generate completed in {}ms", start.to(end).num_milliseconds());
+                        println!("work_generate completed in {}ms for threshold {:?}",
+                            start.to(end).num_milliseconds(),
+                            hex::encode(&threshold));
                         let work: Vec<u8> = work.iter().rev().cloned().collect();
                         Ok((
                             StatusCode::Ok,
@@ -268,9 +294,9 @@ impl RpcService {
                 self.cancel_work(root);
                 Box::new(Box::new(future::ok((StatusCode::Ok, json!({})))))
             }
-            RpcCommand::WorkValidate(root, work) => {
+            RpcCommand::WorkValidate(root, work, threshold) => {
                 println!("Received work_validate");
-                let valid = work_valid(root, work);
+                let valid = work_valid(root, work, threshold);
                 Box::new(future::ok((
                     StatusCode::Ok,
                     json!({
@@ -319,16 +345,16 @@ impl Service for RpcService {
 fn main() {
     //simple_logger::init().unwrap();
 
-    let args = clap::App::new("Banano work server")
+    let args = clap::App::new("Nano/Banano Distributed Proof of Work server")
         .version("1.0")
-        .author("Lee Bousfield <ljbousfield@gmail.com>\nRyan LeFevre <meltingice8917@gmail.com>")
-        .about("Provides a work server for Banano without a full node")
+        .author("Lee Bousfield <ljbousfield@gmail.com>\nRyan LeFevre <meltingice8917@gmail.com>\nGuilherme Lawless <guilherme.lawless@gmail.com>")
+        .about("Provides a work server for (Ba)Nano without a full node.")
         .arg(
             clap::Arg::with_name("listen_address")
                 .short("l")
                 .long("listen-address")
                 .value_name("ADDR")
-                .default_value("[::1]:7072")
+                .default_value("[::1]:7076")
                 .help("Specifies the address to listen on"),
         )
         .arg(
@@ -398,6 +424,7 @@ fn main() {
         let work_state = work_state.clone();
         let mut rng: rand::XorShiftRng = rand::thread_rng().gen();
         let mut root = [0u8; 32];
+        let mut threshold = [0u8; 8];
         let mut task_complete = Arc::new(AtomicBool::new(true));
         let handle = thread::spawn(move || loop {
             if task_complete.load(atomic::Ordering::Relaxed) {
@@ -406,11 +433,12 @@ fn main() {
                     work_state.1.wait(&mut state);
                 }
                 root = state.root;
+                threshold = state.threshold;
                 task_complete = state.task_complete.clone();
             }
             let mut out: [u8; 8] = rng.gen();
             for _ in 0..(1 << 20) {
-                if work_valid(root, out) {
+                if work_valid(root, out, threshold) {
                     let mut state = work_state.0.lock();
                     if root == state.root {
                         if let Some(callback) = state.callback.take() {
@@ -435,6 +463,7 @@ fn main() {
         let mut failed = false;
         let mut rng: rand::XorShiftRng = rand::thread_rng().gen();
         let mut root = [0u8; 32];
+        let mut threshold = [0u8; 8];
         let work_state = work_state.clone();
         let mut task_complete = Arc::new(AtomicBool::new(true));
         let mut consecutive_gpu_errors = 0;
@@ -459,11 +488,12 @@ fn main() {
                     work_state.1.wait(&mut state);
                 }
                 root = state.root;
+                threshold = state.threshold;
                 task_complete = state.task_complete.clone();
                 if failed {
                     state.unsuccessful_workers -= 1;
                 }
-                if let Err(err) = gpu.set_root(&root) {
+                if let Err(err) = gpu.set_task(&root, &threshold) {
                     eprintln!(
                         "Failed to set GPU {}'s task, abandoning it for this work: {:?}",
                         gpu_i, err,
@@ -478,7 +508,7 @@ fn main() {
             let mut out = [0u8; 8];
             match gpu.try(&mut out, attempt) {
                 Ok(true) => {
-                    if work_valid(root, out) {
+                    if work_valid(root, out, threshold) {
                         let mut state = work_state.0.lock();
                         if root == state.root {
                             if let Some(callback) = state.callback.take() {

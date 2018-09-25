@@ -1,10 +1,10 @@
 [package]
-name = "banano-work-server"
-version = "0.1.6"
-authors = ["Lee Bousfield <ljbousfield@gmail.com>", "Ryan LeFevre <meltingice8917@gmail.com>"]
+name = "dpow-work-server"
+version = "0.1.7"
+authors = ["Lee Bousfield <ljbousfield@gmail.com>", "Ryan LeFevre <meltingice8917@gmail.com>", "Guilherme Lawless <guilherme.lawless@gmail.com>"]
 license = "BSD-2-Clause"
-repository = "https://github.com/meltingice/banano-work-server"
-description = "A dedicated work server for the Banano cryptocurrency"
+repository = "https://github.com/guilhermelawless/dpow-work-server"
+description = "A work server to be used for the Distributed Proof of Work System - compatible with Nano and Banano cryptocurrencies"
 
 [dependencies]
 futures = "0.1.17"
