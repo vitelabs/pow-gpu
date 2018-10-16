@@ -344,9 +344,8 @@ static void ucharcpyglb (uchar * dst, __global uchar const * src, size_t count)
 	}
 }
 	
-__kernel void raiblocks_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, __global ulong * threshold)
+__kernel void raiblocks_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, const ulong threshold)
 {
-	ulong threshold_l = *threshold;
 	int const thread = get_global_id (0);
 	uchar item_l [32];
 	ucharcpyglb (item_l, item_a, 32);
@@ -357,8 +356,7 @@ __kernel void raiblocks_work (__global ulong * attempt, __global ulong * result_
 	blake2b_update (&state, item_l, 32);
 	ulong result;
 	blake2b_final (&state, (uchar *) &result, sizeof (result));
-	if (result >= threshold_l)
-	//if (result >= 0xffffffc000000000ul)
+	if (result >= threshold)
 	{
 		*result_a = attempt_l;
 	}

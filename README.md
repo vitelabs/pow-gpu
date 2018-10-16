@@ -11,7 +11,7 @@ To see available command line options, run `dpow-work-server --help`.
 
 The following modifications have been made to acomodate a variable work difficulty threshold:
 
-- `work_generate` request now takes a mandatory **threshold** field:
+- `work_generate` request now takes an **optional** *threshold* field:
 
     ```json
     {
@@ -21,7 +21,7 @@ The following modifications have been made to acomodate a variable work difficul
     }
     ```
 
-- `work_validate` request now takes a mandatory "threshold" field:
+- `work_validate` request now takes an **optional** *threshold* field:
 
     ```json
     {

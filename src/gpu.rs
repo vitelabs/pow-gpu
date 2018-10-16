@@ -3,6 +3,7 @@ use ocl::ProQue;
 use ocl::Result;
 use ocl::Buffer;
 use ocl::Platform;
+use ocl::prm::Ulong;
 use ocl::flags::MemFlags;
 use ocl::builders::ProgramBuilder;
 use ocl::builders::DeviceSpecifier;
@@ -14,7 +15,6 @@ pub struct Gpu {
     attempt: Buffer<u8>,
     result: Buffer<u8>,
     root: Buffer<u8>,
-    threshold: Buffer<u8>,
 }
 
 impl Gpu {
@@ -61,11 +61,8 @@ impl Gpu {
             .flags(MemFlags::new().read_only().host_write_only())
             .len(32)
             .build()?;
-        let threshold = Buffer::<u8>::builder()
-            .queue(pro_que.queue().clone())
-            .flags(MemFlags::new().read_only().host_write_only())
-            .len(8)
-            .build()?;
+
+        let threshold = Ulong::new(0u64);
 
         let kernel = pro_que
             .kernel_builder("raiblocks_work")
@@ -73,7 +70,7 @@ impl Gpu {
             .arg(&attempt)
             .arg(&result)
             .arg(&root)
-            .arg(&threshold)
+            .arg_named("threshold", &threshold)
             .build()?;
 
         let mut gpu = Gpu {
@@ -81,7 +78,6 @@ impl Gpu {
             attempt,
             result,
             root,
-            threshold,
         };
         gpu.reset_bufs()?;
         Ok(gpu)
@@ -92,10 +88,10 @@ impl Gpu {
         Ok(())
     }
 
-    pub fn set_task(&mut self, root: &[u8], threshold: &[u8]) -> Result<()> {
+    pub fn set_task(&mut self, root: &[u8], threshold: u64) -> Result<()> {
         self.reset_bufs()?;
         self.root.write(root).enq()?;
-        self.threshold.write(threshold).enq()?;
+        self.kernel.set_arg("threshold", Ulong::new(threshold))?;
         Ok(())
     }
 
