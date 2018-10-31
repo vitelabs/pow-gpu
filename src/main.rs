@@ -464,7 +464,7 @@ fn main() {
         let mut failed = false;
         let mut rng: rand::XorShiftRng = rand::thread_rng().gen();
         let mut root = [0u8; 32];
-        let mut threshold = 0u64;
+        let mut threshold = [0u8; 32];
         let work_state = work_state.clone();
         let mut task_complete = Arc::new(AtomicBool::new(true));
         let mut consecutive_gpu_errors = 0;
