@@ -357,7 +357,7 @@ static bool quick32bytesGreater (uchar *left, uchar * right)  {
   return true;
 }
 	
-__kernel void vitechain_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, const ulong threshold)
+__kernel void vitechain_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, __global uchar * threshold)
 {
 	int const thread = get_global_id (0);
   int i = 0; 
@@ -373,17 +373,9 @@ __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_
 	blake2b_update (&state, item_l, 32);
   uchar result [32];
 	blake2b_final (&state, result, sizeof (result));
-  uchar thresholdarry [32];
-  for (i = 0; i < 32; i++) {
-    thresholdarry[i] = 0;
-  }
- thresholdarry[0] = 0xFF ;
- thresholdarry[1] = 0xff ;
- thresholdarry[2] = 0xff;
- thresholdarry[3] = 0xc0;
+ 
 
-
-  if (quick32bytesGreater(result, thresholdarry))
+  if (quick32bytesGreater(result, threshold))
   {
     	*result_a = attempt_l;
   }
