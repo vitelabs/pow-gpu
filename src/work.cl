@@ -377,14 +377,11 @@ __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_
   for (i = 0; i < 32; i++) {
     thresholdarry[i] = 0;
   }
- thresholdarry[0] = (uchar)((threshold >> 56) & 0xFF) ;
- thresholdarry[1] = (uchar)((threshold >> 48) & 0xFF) ;
- thresholdarry[2] = (uchar)((threshold >> 40) & 0XFF);
- thresholdarry[3] = (uchar)((threshold >> 32) & 0XFF);
- thresholdarry[4] = (uchar)((threshold >> 24) & 0XFF);
- thresholdarry[5] = (uchar)((threshold >> 16) & 0XFF);
- thresholdarry[6] = (uchar)((threshold >> 8) & 0XFF);
- thresholdarry[7] = (uchar)((threshold & 0XFF));
+ thresholdarry[0] = 0xFF ;
+ thresholdarry[1] = 0xff ;
+ thresholdarry[2] = 0xff;
+ thresholdarry[3] = 0xc0;
+
 
   if (quick32bytesGreater(result, thresholdarry))
   {
