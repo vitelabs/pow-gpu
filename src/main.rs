@@ -97,7 +97,7 @@ struct RpcService {
 enum RpcCommand {
     WorkGenerate([u8; 32],  [u8; 8]),
     WorkCancel([u8; 32]),
-    WorkValidate([u8; 32], [u8; 8], u64),
+    //WorkValidate([u8; 32], [u8; 8], u64),
 }
 
 enum HexJsonError {
@@ -226,11 +226,11 @@ impl RpcService {
             Some(action) if action == "work_cancel" => {
                 Ok(RpcCommand::WorkCancel(Self::parse_hash_json(&json)?))
             }
-            Some(action) if action == "work_validate" => Ok(RpcCommand::WorkValidate(
-                Self::parse_hash_json(&json)?,
-                Self::parse_work_json(&json)?,
-                Self::parse_threshold_json(&json)?,
-            )),
+            // Some(action) if action == "work_validate" => Ok(RpcCommand::WorkValidate(
+            //     Self::parse_hash_json(&json)?,
+            //     Self::parse_work_json(&json)?,
+            //     Self::parse_threshold_json(&json)?,
+            // )),
             Some(_) => {
                 return Err(json!({
                     "error": "Unknown command",
@@ -295,16 +295,16 @@ impl RpcService {
                 self.cancel_work(root);
                 Box::new(Box::new(future::ok((StatusCode::Ok, json!({})))))
             }
-            RpcCommand::WorkValidate(root, work, threshold) => {
-                println!("Received work_validate");
-                let valid = work_valid(root, work, threshold);
-                Box::new(future::ok((
-                    StatusCode::Ok,
-                    json!({
-                        "valid": if valid { "1" } else { "0" },
-                    }),
-                )))
-            }
+            // RpcCommand::WorkValidate(root, work, threshold) => {
+            //     println!("Received work_validate");
+            //     let valid = work_valid(root, work, threshold);
+            //     Box::new(future::ok((
+            //         StatusCode::Ok,
+            //         json!({
+            //             "valid": if valid { "1" } else { "0" },
+            //         }),
+            //     )))
+            // }
         }
     }
 }
