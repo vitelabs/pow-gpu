@@ -374,11 +374,14 @@ __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_
   uchar result [32];
 	blake2b_final (&state, result, sizeof (result));
   uchar thresholdarry [32];
- 
   for (i = 0; i < 32; i++) {
     thresholdarry[i] = 0;
   }
-  store64(thresholdarry, threshold);
+ thresholdarry[0] = (int)((threshold >> 24) & 0xFF) ;
+ thresholdarry[1] = (int)((threshold >> 16) & 0xFF) ;
+ thresholdarry[2] = (int)((threshold >> 8) & 0XFF);
+ thresholdarry[3] = (int)((threshold & 0XFF));
+
   if (quick32bytesGreater(result, thresholdarry))
   {
     	*result_a = attempt_l;
