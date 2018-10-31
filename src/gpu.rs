@@ -65,7 +65,7 @@ impl Gpu {
         let threshold = Ulong::new(0u64);
 
         let kernel = pro_que
-            .kernel_builder("raiblocks_work")
+            .kernel_builder("vitechain_work")
             .global_work_size(threads)
             .arg(&attempt)
             .arg(&result)
