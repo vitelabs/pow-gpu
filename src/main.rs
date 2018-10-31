@@ -71,7 +71,7 @@ struct WorkState {
     callback: Option<oneshot::Sender<Result<[u8; 8], WorkError>>>,
     task_complete: Arc<AtomicBool>,
     unsuccessful_workers: usize,
-    future_work: VecDeque<([u8; 32], u64, oneshot::Sender<Result<[u8; 8], WorkError>>)>,
+    future_work: VecDeque<([u8; 32], [u8; 32], oneshot::Sender<Result<[u8; 8], WorkError>>)>,
 }
 
 impl WorkState {
