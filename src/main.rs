@@ -55,7 +55,7 @@ fn work_value(root: [u8; 32], work: [u8; 8]) -> u64 {
 }
 
 #[inline]
-fn work_valid(root: [u8; 32], work: [u8; 8], threshold: u64) -> bool {
+fn work_valid(root: [u8; 32], work: [u8; 8], threshold:  [u8; 8]) -> bool {
     return true;
 }
 
