@@ -378,7 +378,7 @@ __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_
   for (i = 0; i < 32; i++) {
     thresholdarry[i] = 0;
   }
-  store64(thresholdarry, threshold)
+  store64(thresholdarry, threshold);
   if (quick32bytesGreater(result, thresholdarry))
   {
     	*result_a = attempt_l;
