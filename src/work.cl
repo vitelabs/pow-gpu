@@ -354,7 +354,7 @@ static bool quick32bytesGreater (uchar *left, uchar * right)  {
       return false;
     }
   }
-  return true
+  return true;
 }
 	
 __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, const ulong threshold)
