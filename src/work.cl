@@ -360,16 +360,22 @@ static void quick32bytesGreater(uchar *left, uchar * right) bool {
 __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, const ulong threshold)
 {
 	int const thread = get_global_id (0);
+  int i = 0; 
 	uchar item_l [32];
+  for (i = 0; i < 32; i++) {
+    item_l[i] = 0;
+  }
 	ucharcpyglb (item_l, item_a, 32);
 	ulong attempt_l = *attempt + thread;
 	blake2b_state state;
 	blake2b_init (&state, 32);
 	blake2b_update (&state, (uchar *) &attempt_l, sizeof (ulong));
 	blake2b_update (&state, item_l, 32);
-  uchar result [32];
 	blake2b_final (&state, result, sizeof (result));
   uchar thresholdarry [32];
+  for (i = 0; i < 32; i++) {
+    thresholdarry[i] = 0;
+  }
   store64(thresholdarry, threshold)
   if quick32bytesGreater(result, thresholdarry) 
   {
