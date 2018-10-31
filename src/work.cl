@@ -344,7 +344,7 @@ static void ucharcpyglb (uchar * dst, __global uchar const * src, size_t count)
 	}
 }
 
-static void quick32bytesGreater(uchar *left, uchar * right) bool {
+static bool quick32bytesGreater (uchar *left, uchar * right)  {
   int i = 0;
   for (i = 0; i < 32; i++) {
     if left[i] > right[i] {
