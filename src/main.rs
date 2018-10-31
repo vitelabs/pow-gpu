@@ -494,7 +494,7 @@ fn main() {
                 if failed {
                     state.unsuccessful_workers -= 1;
                 }
-                if let Err(err) = gpu.set_task(&root, threshold) {
+                if let Err(err) = gpu.set_task(&root, &threshold) {
                     eprintln!(
                         "Failed to set GPU {}'s task, abandoning it for this work: {:?}",
                         gpu_i, err,
