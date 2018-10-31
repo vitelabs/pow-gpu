@@ -343,21 +343,40 @@ static void ucharcpyglb (uchar * dst, __global uchar const * src, size_t count)
 		++src;
 	}
 }
-	
-__kernel void raiblocks_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, const ulong threshold)
+
+static bool quick32bytesGreater (uchar *left, __global  uchar * right)  {
+  int i = 0;
+  for (i = 0; i < 32; i++) {
+    if (left[i] > right[i]){
+      return true;
+    }
+    if (left[i] < right[i]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+__kernel void vitechain_work (__global ulong * attempt, __global ulong * result_a, __global uchar * item_a, __global uchar * threshold)
 {
 	int const thread = get_global_id (0);
+  int i = 0;
 	uchar item_l [32];
+   for (i = 0; i < 32; i++) {
+    item_l[i] = 0;
+  }
 	ucharcpyglb (item_l, item_a, 32);
 	ulong attempt_l = *attempt + thread;
 	blake2b_state state;
-	blake2b_init (&state, sizeof (ulong));
+	blake2b_init (&state, 32);
 	blake2b_update (&state, (uchar *) &attempt_l, sizeof (ulong));
 	blake2b_update (&state, item_l, 32);
-	ulong result;
-	blake2b_final (&state, (uchar *) &result, sizeof (result));
-	if (result >= threshold)
-	{
-		*result_a = attempt_l;
-	}
+  uchar result [32];
+	blake2b_final (&state, result, sizeof (result));
+
+
+  if (quick32bytesGreater(result, threshold))
+  {
+    	*result_a = attempt_l;
+  }
 }

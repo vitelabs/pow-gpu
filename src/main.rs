@@ -44,8 +44,6 @@ use time::PreciseTime;
 
 use gpu::Gpu;
 
-// Nano's minimum work threshold, set as default when threshold not given
-const MIN_THRESHOLD: u64 = 0xffffffc000000000;
 
 fn work_value(root: [u8; 32], work: [u8; 8]) -> u64 {
     let mut buf = [0u8; 8];
@@ -57,8 +55,8 @@ fn work_value(root: [u8; 32], work: [u8; 8]) -> u64 {
 }
 
 #[inline]
-fn work_valid(root: [u8; 32], work: [u8; 8], threshold: u64) -> bool {
-    work_value(root, work) >= threshold
+fn work_valid(root: [u8; 32], work: [u8; 8], threshold:  [u8; 32]) -> bool {
+    return true;
 }
 
 enum WorkError {
@@ -69,11 +67,11 @@ enum WorkError {
 #[derive(Default)]
 struct WorkState {
     root: [u8; 32],
-    threshold: u64,
+    threshold: [u8; 32],
     callback: Option<oneshot::Sender<Result<[u8; 8], WorkError>>>,
     task_complete: Arc<AtomicBool>,
     unsuccessful_workers: usize,
-    future_work: VecDeque<([u8; 32], u64, oneshot::Sender<Result<[u8; 8], WorkError>>)>,
+    future_work: VecDeque<([u8; 32], [u8; 32], oneshot::Sender<Result<[u8; 8], WorkError>>)>,
 }
 
 impl WorkState {
@@ -97,9 +95,9 @@ struct RpcService {
 }
 
 enum RpcCommand {
-    WorkGenerate([u8; 32], u64),
+    WorkGenerate([u8; 32],  [u8; 32]),
     WorkCancel([u8; 32]),
-    WorkValidate([u8; 32], [u8; 8], u64),
+    //WorkValidate([u8; 32], [u8; 8], u64),
 }
 
 enum HexJsonError {
@@ -108,7 +106,7 @@ enum HexJsonError {
 }
 
 impl RpcService {
-    fn generate_work(&self, root: [u8; 32], threshold: u64) -> Box<Future<Item = [u8; 8], Error = WorkError>> {
+    fn generate_work(&self, root: [u8; 32], threshold: [u8; 32]) -> Box<Future<Item = [u8; 8], Error = WorkError>> {
         let mut state = self.work_state.0.lock();
         let (callback_send, callback_recv) = oneshot::channel();
         state.future_work.push_back((root, threshold, callback_send));
@@ -154,26 +152,7 @@ impl RpcService {
         Ok(())
     }
 
-    fn parse_hash_json(json: &Value) -> Result<[u8; 32], Value> {
-        let root = json.get("hash").ok_or(json!({
-            "error": "Failed to deserialize JSON",
-            "hint": "Hash field missing",
-        }))?;
-        let mut out = [0u8; 32];
-        Self::parse_hex_json(&root, &mut out).map_err(|err| match err {
-            HexJsonError::InvalidHex => json!({
-                "error": "Bad block hash",
-                "hint": "Expecting a hex string",
-            }),
-            HexJsonError::TooLong => json!({
-                "error": "Bad block hash",
-                "hint": "Hash is too long (should be 32 bytes)",
-            }),
-        })?;
-        Ok(out)
-    }
-
-    fn parse_work_json(json: &Value) -> Result<[u8; 8], Value> {
+      fn parse_work_json(json: &Value) -> Result<[u8; 8], Value> {
         let root = json.get("work").ok_or(json!({
             "error": "Failed to deserialize JSON",
             "hint": "Work field missing",
@@ -193,25 +172,43 @@ impl RpcService {
         Ok(out)
     }
 
-    fn parse_threshold_json(json: &Value) -> Result<u64, Value> {
-        match json.get("threshold") {
+    fn parse_hash_json(json: &Value) -> Result<[u8; 32], Value> {
+        let root = json.get("hash").ok_or(json!({
+            "error": "Failed to deserialize JSON",
+            "hint": "Hash field missing",
+        }))?;
+        let mut out = [0u8; 32];
+        Self::parse_hex_json(&root, &mut out).map_err(|err| match err {
+            HexJsonError::InvalidHex => json!({
+                "error": "Bad block hash",
+                "hint": "Expecting a hex string",
+            }),
+            HexJsonError::TooLong => json!({
+                "error": "Bad block hash",
+                "hint": "Hash is too long (should be 32 bytes)",
+            }),
+        })?;
+        Ok(out)
+    }
 
-            None => Ok(MIN_THRESHOLD),
+    fn parse_threshold_json(json: &Value) -> Result<[u8; 32], Value> {
 
-            Some(json) => {
-                let threshold_str = json.as_str().ok_or(json!({
-                    "error": "Failed to deserialize JSON",
-                    "hint": "Expecting a hex string for threshold",
-                }))?;
-
-                let threshold = u64::from_str_radix(threshold_str, 16).map_err(|_| json!({
-                    "error": "Failed to deserialize JSON",
-                    "hint": "Threshold not a valid unsigned long (u64). Example: 'ffffffc000000000'",
-                }))?;
-
-                Ok(threshold)
-            },
-        }
+        let threshold = json.get("threshold").ok_or(json!({
+            "error": "Failed to deserialize JSON",
+            "hint": "threshold field missing",
+        }))?;
+        let mut out = [0u8; 32];
+        Self::parse_hex_json(&threshold, &mut out).map_err(|err| match err {
+            HexJsonError::InvalidHex => json!({
+                "error": "Bad block threshold",
+                "hint": "Expecting a hex string",
+            }),
+            HexJsonError::TooLong => json!({
+                "error": "Bad block threshold",
+                "hint": "threshold is too long (should be 32 bytes)",
+            }),
+        })?;
+        Ok(out)
     }
 
     fn parse_json(json: Value) -> Result<RpcCommand, Value> {
@@ -229,11 +226,11 @@ impl RpcService {
             Some(action) if action == "work_cancel" => {
                 Ok(RpcCommand::WorkCancel(Self::parse_hash_json(&json)?))
             }
-            Some(action) if action == "work_validate" => Ok(RpcCommand::WorkValidate(
-                Self::parse_hash_json(&json)?,
-                Self::parse_work_json(&json)?,
-                Self::parse_threshold_json(&json)?,
-            )),
+            // Some(action) if action == "work_validate" => Ok(RpcCommand::WorkValidate(
+            //     Self::parse_hash_json(&json)?,
+            //     Self::parse_work_json(&json)?,
+            //     Self::parse_threshold_json(&json)?,
+            // )),
             Some(_) => {
                 return Err(json!({
                     "error": "Unknown command",
@@ -268,9 +265,8 @@ impl RpcService {
                 Box::new(self.generate_work(root, threshold).then(move |res| match res {
                     Ok(work) => {
                         let end = PreciseTime::now();
-                        println!("work_generate completed in {}ms for threshold {:#x}",
-                            start.to(end).num_milliseconds(),
-                            threshold);
+                        println!("work_generate completed in {}ms for threshold",
+                            start.to(end).num_milliseconds());
                         let work: Vec<u8> = work.iter().rev().cloned().collect();
                         Ok((
                             StatusCode::Ok,
@@ -298,16 +294,16 @@ impl RpcService {
                 self.cancel_work(root);
                 Box::new(Box::new(future::ok((StatusCode::Ok, json!({})))))
             }
-            RpcCommand::WorkValidate(root, work, threshold) => {
-                println!("Received work_validate");
-                let valid = work_valid(root, work, threshold);
-                Box::new(future::ok((
-                    StatusCode::Ok,
-                    json!({
-                        "valid": if valid { "1" } else { "0" },
-                    }),
-                )))
-            }
+            // RpcCommand::WorkValidate(root, work, threshold) => {
+            //     println!("Received work_validate");
+            //     let valid = work_valid(root, work, threshold);
+            //     Box::new(future::ok((
+            //         StatusCode::Ok,
+            //         json!({
+            //             "valid": if valid { "1" } else { "0" },
+            //         }),
+            //     )))
+            // }
         }
     }
 }
@@ -428,7 +424,7 @@ fn main() {
         let work_state = work_state.clone();
         let mut rng: rand::XorShiftRng = rand::thread_rng().gen();
         let mut root = [0u8; 32];
-        let mut threshold = 0u64;
+        let mut threshold = [0u8; 32];
         let mut task_complete = Arc::new(AtomicBool::new(true));
         let handle = thread::spawn(move || loop {
             if task_complete.load(atomic::Ordering::Relaxed) {
@@ -467,7 +463,7 @@ fn main() {
         let mut failed = false;
         let mut rng: rand::XorShiftRng = rand::thread_rng().gen();
         let mut root = [0u8; 32];
-        let mut threshold = 0u64;
+        let mut threshold = [0u8; 32];
         let work_state = work_state.clone();
         let mut task_complete = Arc::new(AtomicBool::new(true));
         let mut consecutive_gpu_errors = 0;
@@ -497,7 +493,7 @@ fn main() {
                 if failed {
                     state.unsuccessful_workers -= 1;
                 }
-                if let Err(err) = gpu.set_task(&root, threshold) {
+                if let Err(err) = gpu.set_task(&root, &threshold) {
                     eprintln!(
                         "Failed to set GPU {}'s task, abandoning it for this work: {:?}",
                         gpu_i, err,
