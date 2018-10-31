@@ -55,7 +55,7 @@ fn work_value(root: [u8; 32], work: [u8; 8]) -> u64 {
 }
 
 #[inline]
-fn work_valid(root: [u8; 32], work: [u8; 8], threshold:  [u8; 8]) -> bool {
+fn work_valid(root: [u8; 32], work: [u8; 8], threshold:  [u8; 32]) -> bool {
     return true;
 }
 
@@ -95,7 +95,7 @@ struct RpcService {
 }
 
 enum RpcCommand {
-    WorkGenerate([u8; 32],  [u8; 8]),
+    WorkGenerate([u8; 32],  [u8; 32]),
     WorkCancel([u8; 32]),
     //WorkValidate([u8; 32], [u8; 8], u64),
 }
@@ -265,9 +265,8 @@ impl RpcService {
                 Box::new(self.generate_work(root, threshold).then(move |res| match res {
                     Ok(work) => {
                         let end = PreciseTime::now();
-                        println!("work_generate completed in {}ms for threshold {:#x}",
-                            start.to(end).num_milliseconds(),
-                            threshold);
+                        println!("work_generate completed in {}ms for threshold",
+                            start.to(end).num_milliseconds());
                         let work: Vec<u8> = work.iter().rev().cloned().collect();
                         Ok((
                             StatusCode::Ok,
