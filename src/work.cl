@@ -362,7 +362,7 @@ __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_
 	int const thread = get_global_id (0);
   int i = 0; 
 	uchar item_l [32];
-  for (i = 0; i < 32; i++) {
+   for (i = 0; i < 32; i++) {
     item_l[i] = 0;
   }
 	ucharcpyglb (item_l, item_a, 32);
@@ -371,8 +371,10 @@ __kernel void vitechain_work (__global ulong * attempt, __global ulong * result_
 	blake2b_init (&state, 32);
 	blake2b_update (&state, (uchar *) &attempt_l, sizeof (ulong));
 	blake2b_update (&state, item_l, 32);
+  uchar result [32];
 	blake2b_final (&state, result, sizeof (result));
   uchar thresholdarry [32];
+ 
   for (i = 0; i < 32; i++) {
     thresholdarry[i] = 0;
   }
