@@ -95,7 +95,7 @@ struct RpcService {
 }
 
 enum RpcCommand {
-    WorkGenerate([u8; 32], u64),
+    WorkGenerate([u8; 32],  [u8; 8]),
     WorkCancel([u8; 32]),
     WorkValidate([u8; 32], [u8; 8], u64),
 }
