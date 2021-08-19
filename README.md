@@ -64,9 +64,9 @@ curl https://sh.rustup.rs -sSf | sh
 ### Build and run
 
 ```
-git clone https://github.com/guilhermelawless/dpow-work-server.git
-cd dpow-work-server
+git clone https://github.com/vitelabs/pow-gpu.git
+cd pow-gpu
 cargo build --release
 cd target/release
-./dpow-work-server --help
+./dpow-work-server --gpu 0:0 --listen-address 127.0.0.1:7076
 ```
